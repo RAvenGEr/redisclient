@@ -50,6 +50,7 @@ namespace
         vec.insert(vec.end(), s, s + size);
     }
 
+#ifndef BOOST_OS_WINDOWS
     ssize_t socketReadSomeImpl(int socket, char *buffer, size_t size,
             size_t timeoutMsec)
     {
@@ -207,6 +208,7 @@ namespace
 
         return bytesSend;
     }
+#endif
 }
 
 namespace redisclient {
@@ -399,8 +401,11 @@ RedisValue RedisClientImpl::doSyncCommand(const std::deque<RedisBuffer> &command
         boost::system::error_code &ec)
 {
     std::vector<char> data = makeCommand(command);
+#ifdef BOOST_OS_WINDOWS
+    socket.write_some(boost::asio::buffer(data), ec);
+#else
     socketWrite(socket.native_handle(), boost::asio::buffer(data), timeout, ec);
-
+#endif
     if( ec )
     {
         close();
@@ -426,9 +431,11 @@ RedisValue RedisClientImpl::doSyncCommand(const std::deque<std::deque<RedisBuffe
         data.push_back(makeCommand(command));
         buffers.push_back(boost::asio::buffer(data.back()));
     }
-
+#ifdef BOOST_OS_WINDOWS
+    socket.write_some(buffers, ec);
+#else
     socketWrite(socket.native_handle(), buffers, timeout, ec);
-
+#endif
     if( ec )
     {
         close();
@@ -461,9 +468,12 @@ RedisValue RedisClientImpl::syncReadResponse(
     {
         if (bufSize == 0)
         {
+#ifdef BOOST_OS_WINDOWS
+            bufSize = socket.read_some(boost::asio::buffer(buf), ec);
+#else
             bufSize = socketReadSome(socket.native_handle(),
                     boost::asio::buffer(buf), timeout, ec);
-
+#endif
             if (ec)
             {
                 close();
