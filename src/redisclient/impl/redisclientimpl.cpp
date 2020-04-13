@@ -16,6 +16,7 @@ namespace
 {
     static const char crlf[] = {'\r', '\n'};
     inline void bufferAppend(std::vector<char> &vec, const std::string &s);
+    inline void bufferAppend(std::vector<char> &vec, const std::vector<char> &s);
     inline void bufferAppend(std::vector<char> &vec, const char *s);
     inline void bufferAppend(std::vector<char> &vec, char c);
     template<size_t size>
@@ -28,7 +29,13 @@ namespace
         else
             bufferAppend(vec, boost::get<std::vector<char>>(buf.data));
     }
+
     inline void bufferAppend(std::vector<char> &vec, const std::string &s)
+    {
+        vec.insert(vec.end(), s.begin(), s.end());
+    }
+
+    inline void bufferAppend(std::vector<char> &vec, const std::vector<char> &s)
     {
         vec.insert(vec.end(), s.begin(), s.end());
     }
@@ -226,8 +233,6 @@ RedisClientImpl::~RedisClientImpl()
 
 void RedisClientImpl::close() noexcept
 {
-    if( state != State::Closed )
-    {
         boost::system::error_code ignored_ec;
 
         msgHandlers.clear();
@@ -238,7 +243,6 @@ void RedisClientImpl::close() noexcept
         socket.close(ignored_ec);
 
         state = State::Closed;
-    }
 }
 
 RedisClientImpl::State RedisClientImpl::getState() const
@@ -408,8 +412,6 @@ RedisValue RedisClientImpl::doSyncCommand(const std::deque<RedisBuffer> &command
 #endif
     if( ec )
     {
-        close();
-        errorHandler(ec.message());
         return RedisValue();
     }
 
@@ -438,8 +440,6 @@ RedisValue RedisClientImpl::doSyncCommand(const std::deque<std::deque<RedisBuffe
 #endif
     if( ec )
     {
-        close();
-        errorHandler(ec.message());
         return RedisValue();
     }
 
@@ -451,8 +451,6 @@ RedisValue RedisClientImpl::doSyncCommand(const std::deque<std::deque<RedisBuffe
 
         if (ec)
         {
-            close();
-            errorHandler(ec.message());
             return RedisValue();
         }
     }
@@ -476,7 +474,6 @@ RedisValue RedisClientImpl::syncReadResponse(
 #endif
             if (ec)
             {
-                close();
                 return RedisValue();
             }
         }
